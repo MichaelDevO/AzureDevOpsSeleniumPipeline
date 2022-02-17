@@ -1,0 +1,64 @@
+variables:
+- name: BuildParameters.solution
+  value: '**\*.sln'
+- name: BuildParameters.ArtifactName
+  value: drop
+name: $(date:yyyyMMdd)$(rev:.r)
+jobs:
+- job: Phase_1
+  displayName: Phase 1
+  cancelTimeoutInMinutes: 1
+  pool:
+    vmImage: windows-2019
+  steps:
+  - checkout: self
+  - task: NuGetToolInstaller@0
+    name: NuGetToolInstaller1
+    displayName: Use NuGet 4.3.0
+    inputs:
+      versionSpec: 4.3.0
+  - task: NuGetCommand@2
+    name: NuGetCommand2
+    displayName: NuGet restore
+    inputs:
+      solution: $(BuildParameters.solution)
+      searchPatternPush: $(Build.ArtifactStagingDirectory)/*.nupkg
+  - task: VSBuild@1
+    name: VSBuild3
+    displayName: Build solution
+    inputs:
+      solution: $(BuildParameters.solution)
+      msbuildArgs: /p:DeployOnBuild=true /p:WebPublishMethod=Package /p:PackageAsSingleFile=true /p:SkipInvalidConfigurations=true /p:PackageLocation="$(build.artifactstagingdirectory)\\"
+      platform: $(BuildPlatform)
+      configuration: $(BuildConfiguration)
+  - task: VSTest@2
+    name: VSTest4
+    displayName: Test Assemblies
+    inputs:
+      testAssemblyVer2: >-
+        **\$(BuildConfiguration)\*test*.dll
+
+        !**\obj\**
+      searchFolder: $(System.DefaultWorkingDirectory)\test\PartsUnlimited.UnitTests
+      platform: $(BuildPlatform)
+      configuration: $(BuildConfiguration)
+  - task: CopyFiles@2
+    name: CopyFiles1
+    displayName: 'Copy Files to: $(build.artifactstagingdirectory)/TestAssemblies'
+    inputs:
+      SourceFolder: $(Build.SourcesDirectory)/test/PartsUnlimited.SeleniumTests/bin/$(BuildConfiguration)
+      TargetFolder: $(build.artifactstagingdirectory)/TestAssemblies
+  - task: CopyFiles@2
+    name: CopyFiles2
+    displayName: 'Copy Files to: $(build.artifactstagingdirectory)/Database'
+    inputs:
+      SourceFolder: Database/Database
+      TargetFolder: $(build.artifactstagingdirectory)/Database
+  - task: PublishBuildArtifacts@1
+    name: PublishBuildArtifacts6
+    displayName: Publish Artifact
+    inputs:
+      PathtoPublish: $(build.artifactstagingdirectory)
+      ArtifactName: $(BuildParameters.ArtifactName)
+      TargetPath: '\\my\share\$(Build.DefinitionName)\$(Build.BuildNumber)'
+...
